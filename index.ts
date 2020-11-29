@@ -26,28 +26,34 @@ class Executor {
     }
 
     private async inferImage(imageBuffer: Buffer, fileName: string): Promise<void> {
-        const pixelData: tf.PixelData = {
-            width: 160,
-            height: 250,
-            data: new Uint8Array(imageBuffer)
-        }
-    
-        const tensor = tf.browser
-            .fromPixels(pixelData)
-            .resizeNearestNeighbor([150, 150])
+        const imgDataArray = new Uint8Array(imageBuffer);
+
+        let tensor = tfn.node
+            .decodeJpeg(imgDataArray)
+            .resizeNearestNeighbor([224, 224]);
+        // await this.saveProcessedImage(tensor, fileName);
+
+        tensor = tensor
+            .sub(127)
+            .div(127)
             .expandDims();
-        
         const prediction = this.model.predict(tensor);
+        
         const label = (prediction as tf.Tensor).argMax(1).dataSync()[0];
 
         switch (label) {
-            case 1:
+            case 0:
                 console.log(fileName, 'Cat');
                 break;
-            case 0:
+            case 1:
                 console.log(fileName, 'Dog');
                 break;
         }
+    }
+
+    private async saveProcessedImage(tensor: tf.Tensor, imageName: string): Promise<void> {
+        const encoded = await tfn.node.encodeJpeg(tensor as any);
+        fs.writeFileSync(`./images/processed/${imageName}`, encoded);
     }
 
 }
